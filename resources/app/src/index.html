@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi relojito</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 300px;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+    user-select: none;
+  }
+
+  .widget {
+    background: rgba(15, 15, 25, 0.62);
+    backdrop-filter: blur(40px) saturate(160%);
+    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.11);
+    border-radius: 18px;
+    padding: 12px 14px 12px;
+    box-shadow:
+      0 4px 24px rgba(0,0,0,0.45),
+      0 1px 0 rgba(255,255,255,0.12) inset,
+      0 -1px 0 rgba(0,0,0,0.2) inset;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .widget::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20px; right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    pointer-events: none;
+  }
+
+  /* drag region */
+  .drag-bar {
+    -webkit-app-region: drag;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    margin-bottom: 2px;
+  }
+
+  .header-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.32);
+  }
+
+  .header-actions {
+    -webkit-app-region: no-drag;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .icon-btn {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.65);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.16); color: #fff; border-color: rgba(255,255,255,0.3); }
+  .icon-btn.close:hover { background: rgba(255,80,80,0.3); border-color: rgba(255,80,80,0.5); color: #ff6060; }
+
+  .clocks { display: flex; flex-direction: column; gap: 3px; }
+
+  .clock-row {
+    -webkit-app-region: no-drag;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 11px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.055);
+    position: relative;
+    overflow: hidden;
+    transition: background 0.12s;
+  }
+  .clock-row:hover { background: rgba(255,255,255,0.08); }
+  .clock-row.local {
+    background: rgba(80,130,255,0.1);
+    border-color: rgba(80,130,255,0.18);
+  }
+  .clock-row:hover .del-btn { opacity: 1; }
+
+  .del-btn {
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 4px; height: 24px;
+    background: rgba(255,70,70,0.0);
+    border: none; cursor: pointer;
+    border-radius: 0 3px 3px 0;
+    opacity: 0;
+    transition: all 0.15s;
+    padding: 0;
+  }
+  .del-btn:hover { background: rgba(255,70,70,0.85) !important; opacity: 1 !important; }
+  .clock-row:hover .del-btn { opacity: 1; background: rgba(255,70,70,0.35); }
+
+  .left { display: flex; flex-direction: column; gap: 2px; }
+  .city-row { display: flex; align-items: center; gap: 5px; }
+  .flag { font-size: 14px; line-height: 1; }
+  .city { font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.55); }
+  .sub { font-size: 9px; color: rgba(255,255,255,0.22); margin-top: 1px; }
+
+  .right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .time {
+    font-size: 23px;
+    font-weight: 200;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: -0.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .secs { font-size: 13px; color: rgba(255,255,255,0.35); font-weight: 300; }
+  .ampm { font-size: 9px; color: rgba(255,255,255,0.3); letter-spacing: 0.4px; }
+
+  /* Add panel */
+  .divider { height: 1px; background: rgba(255,255,255,0.07); margin: 7px 0 5px; }
+
+  .add-panel { display: none; flex-direction: column; gap: 5px; }
+  .add-panel.open { display: flex; }
+
+  .tz-select {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.13);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.82);
+    font-size: 11.5px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .tz-select:focus { border-color: rgba(80,130,255,0.5); }
+  .tz-select option { background: #111120; color: #ddd; }
+
+  .add-confirm {
+    padding: 6px 0;
+    border-radius: 9px;
+    border: 1px solid rgba(80,130,255,0.35);
+    background: rgba(80,130,255,0.15);
+    color: rgba(255,255,255,0.82);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.2px;
+  }
+  .add-confirm:hover { background: rgba(80,130,255,0.3); border-color: rgba(80,130,255,0.6); }
+</style>
+</head>
+<body>
+<div class="widget" id="widget">
+  <div class="drag-bar">
+    <span class="header-label">Mi relojito</span>
+    <div class="header-actions">
+      <div class="icon-btn" id="addBtn" title="Agregar zona">+</div>
+      <div class="icon-btn close" id="closeBtn" title="Cerrar">✕</div>
+    </div>
+  </div>
+
+  <div class="clocks" id="clocks"></div>
+
+  <div class="add-panel" id="addPanel">
+    <div class="divider"></div>
+    <select class="tz-select" id="tzSel"></select>
+    <button class="add-confirm" id="addConfirm">Agregar</button>
+  </div>
+</div>
+
+<script>
+const ZONES = [
+  { city:'Lima', country:'Perú', tz:'America/Lima', flag:'🇵🇪' },
+  { city:'Tokyo', country:'Japón', tz:'Asia/Tokyo', flag:'🇯🇵' },
+  { city:'New York', country:'EE.UU.', tz:'America/New_York', flag:'🇺🇸' },
+  { city:'London', country:'R. Unido', tz:'Europe/London', flag:'🇬🇧' },
+  { city:'Paris', country:'Francia', tz:'Europe/Paris', flag:'🇫🇷' },
+  { city:'Berlin', country:'Alemania', tz:'Europe/Berlin', flag:'🇩🇪' },
+  { city:'Dubai', country:'E. Árabes', tz:'Asia/Dubai', flag:'🇦🇪' },
+  { city:'Singapore', country:'Singapur', tz:'Asia/Singapore', flag:'🇸🇬' },
+  { city:'Sydney', country:'Australia', tz:'Australia/Sydney', flag:'🇦🇺' },
+  { city:'São Paulo', country:'Brasil', tz:'America/Sao_Paulo', flag:'🇧🇷' },
+  { city:'Mexico City', country:'México', tz:'America/Mexico_City', flag:'🇲🇽' },
+  { city:'Los Angeles', country:'EE.UU.', tz:'America/Los_Angeles', flag:'🇺🇸' },
+  { city:'Chicago', country:'EE.UU.', tz:'America/Chicago', flag:'🇺🇸' },
+  { city:'Toronto', country:'Canadá', tz:'America/Toronto', flag:'🇨🇦' },
+  { city:'Seoul', country:'Corea', tz:'Asia/Seoul', flag:'🇰🇷' },
+  { city:'Shanghai', country:'China', tz:'Asia/Shanghai', flag:'🇨🇳' },
+  { city:'Mumbai', country:'India', tz:'Asia/Kolkata', flag:'🇮🇳' },
+  { city:'Moscú', country:'Rusia', tz:'Europe/Moscow', flag:'🇷🇺' },
+  { city:'Istanbul', country:'Turquía', tz:'Europe/Istanbul', flag:'🇹🇷' },
+  { city:'Cairo', country:'Egipto', tz:'Africa/Cairo', flag:'🇪🇬' },
+  { city:'Johannesburg', country:'S. África', tz:'Africa/Johannesburg', flag:'🇿🇦' },
+  { city:'Auckland', country:'N. Zelanda', tz:'Pacific/Auckland', flag:'🇳🇿' },
+  { city:'Honolulu', country:'EE.UU.', tz:'Pacific/Honolulu', flag:'🇺🇸' },
+  { city:'Bangkok', country:'Tailandia', tz:'Asia/Bangkok', flag:'🇹🇭' },
+  { city:'Jakarta', country:'Indonesia', tz:'Asia/Jakarta', flag:'🇮🇩' },
+  { city:'Buenos Aires', country:'Argentina', tz:'America/Argentina/Buenos_Aires', flag:'🇦🇷' },
+  { city:'Santiago', country:'Chile', tz:'America/Santiago', flag:'🇨🇱' },
+  { city:'Bogotá', country:'Colombia', tz:'America/Bogota', flag:'🇨🇴' },
+];
+
+const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+let active = [
+  ZONES.find(z=>z.city==='Lima'),
+  ZONES.find(z=>z.city==='Tokyo'),
+  ZONES.find(z=>z.city==='New York'),
+].map(z=>({...z}));
+
+const cEl = document.getElementById('clocks');
+const addBtn = document.getElementById('addBtn');
+const addPanel = document.getElementById('addPanel');
+const tzSel = document.getElementById('tzSel');
+const addConfirm = document.getElementById('addConfirm');
+
+function getDayDiff(tz) {
+  const now = new Date();
+  const ld = new Date(now.toLocaleString('en-US',{timeZone:localTz})).getDate();
+  const td = new Date(now.toLocaleString('en-US',{timeZone:tz})).getDate();
+  const d = td - ld;
+  if (d===0) return '';
+  if (d===1||d===-6) return '+1';
+  if (d===-1||d===6) return '-1';
+  return (d>0?'+':'')+d;
+}
+
+function render() {
+  cEl.innerHTML = '';
+  active.forEach((z, i) => {
+    const isLocal = z.tz === localTz;
+    const row = document.createElement('div');
+    row.className = 'clock-row' + (isLocal ? ' local' : '');
+    row.innerHTML = `
+      <button class="del-btn" data-i="${i}"></button>
+      <div class="left">
+        <div class="city-row">
+          <span class="flag">${z.flag}</span>
+          <span class="city">${z.city}</span>
+        </div>
+        <span class="sub" id="sub-${i}"></span>
+      </div>
+      <div class="right">
+        <span class="time" id="t-${i}">--:--<span class="secs">:--</span></span>
+        <span class="ampm" id="ap-${i}"></span>
+      </div>
+    `;
+    row.querySelector('.del-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      active.splice(i,1);
+      fillSelect(); render();
+    });
+    cEl.appendChild(row);
+  });
+  adjustHeight();
+}
+
+function adjustHeight() {
+  setTimeout(() => {
+    const h = document.getElementById('widget').scrollHeight + 10;
+    if (typeof window.resizeWindow === 'function') window.resizeWindow(h);
+  }, 30);
+}
+
+function fillSelect() {
+  const set = new Set(active.map(a=>a.tz));
+  tzSel.innerHTML = '';
+  ZONES.forEach(z => {
+    if (!set.has(z.tz)) {
+      const o = document.createElement('option');
+      o.value = z.tz;
+      o.textContent = `${z.flag}  ${z.city}, ${z.country}`;
+      tzSel.appendChild(o);
+    }
+  });
+}
+
+function tick() {
+  const now = new Date();
+  active.forEach((z,i) => {
+    const p = new Intl.DateTimeFormat('en-US',{
+      timeZone:z.tz, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true
+    }).formatToParts(now);
+    const g = t => p.find(x=>x.type===t)?.value||'';
+    const tEl = document.getElementById(`t-${i}`);
+    const apEl = document.getElementById(`ap-${i}`);
+    const subEl = document.getElementById(`sub-${i}`);
+    if (tEl) tEl.innerHTML = `${g('hour')}:${g('minute')}<span class="secs">:${g('second')}</span>`;
+    if (apEl) apEl.textContent = g('dayPeriod');
+    if (subEl) {
+      const dd = getDayDiff(z.tz);
+      subEl.textContent = dd ? `día ${dd}` : '';
+    }
+  });
+}
+
+addBtn.addEventListener('click', () => {
+  addPanel.classList.toggle('open');
+  if (addPanel.classList.contains('open')) { fillSelect(); adjustHeight(); }
+  else adjustHeight();
+});
+
+addConfirm.addEventListener('click', () => {
+  const tz = tzSel.value;
+  const z = ZONES.find(x=>x.tz===tz);
+  if (z && !active.find(a=>a.tz===tz)) {
+    active.push({...z});
+    render(); fillSelect();
+    addPanel.classList.remove('open');
+    tick(); adjustHeight();
+  }
+});
+
+document.getElementById('closeBtn').addEventListener('click', () => {
+  if (typeof window.closeApp === 'function') window.closeApp();
+  else window.close();
+});
+
+render(); fillSelect(); tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
