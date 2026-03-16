@@ -1,5 +1,23 @@
 {
-  "name": "Mi relojito",
+  "name": "mi-relojito",
   "version": "1.0.0",
-  "main": "main.js"
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.brahams.mirelojito",
+    "productName": "MiRelojito",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable"
+    }
+  }
 }
